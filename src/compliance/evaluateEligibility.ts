@@ -36,6 +36,12 @@ export function evaluateDirectContactEligibility(
   const reasons: string[] = [];
   const blocking: string[] = [];
 
+  if (jurisdiction === "OTHER") {
+    blocking.push(
+      `No compliance rule set mapped for country "${business.contact.address.country}" — requires manual jurisdiction review before this business can be marked direct-contact eligible.`,
+    );
+  }
+
   const identifier = channel === "email" ? business.contact.email : channel === "phone" ? business.contact.phone : business.contact.address.formatted;
 
   if (!identifier) {

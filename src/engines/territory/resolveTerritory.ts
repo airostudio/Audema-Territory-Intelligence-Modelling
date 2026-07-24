@@ -4,6 +4,9 @@ import type { Geocoder } from "./geocoder.js";
 import { bboxAreaSqKm, bboxAroundPoint, bboxOfPolygon, mergeBBoxes, pointInPolygon, type BBox } from "./geo.js";
 
 const DEFAULT_H3_RESOLUTION = 8; // ~0.46km^2 hexagons; fine enough for suburb-level clustering.
+// The wizard's documented radius options top out at 50km; 100km leaves headroom for
+// "several towns as one territory" while still bounding gridDisk's O(k^2) cell growth.
+const MAX_RADIUS_KM = 100;
 
 /** Resolves every selection mode in a TerritoryDefinition into a single bbox + H3 cell set. */
 export async function resolveTerritory(
@@ -80,12 +83,13 @@ async function resolveSelection(
 }
 
 function radiusCells(center: GeoPoint, radiusKm: number, resolution: number): { cells: Set<string>; bbox: BBox } {
+  const clampedRadiusKm = Math.min(Math.max(radiusKm, 0), MAX_RADIUS_KM);
   const centerCell = latLngToCell(center.lat, center.lng, resolution);
   // Rough ring count: gridDisk(k) covers roughly k hex-edge-lengths outward.
   const edgeLengthKm = h3EdgeLengthKm(resolution);
-  const k = Math.max(1, Math.ceil(radiusKm / edgeLengthKm));
+  const k = Math.max(1, Math.ceil(clampedRadiusKm / edgeLengthKm));
   const cells = new Set(gridDisk(centerCell, k));
-  return { cells, bbox: bboxAroundPoint(center, radiusKm) };
+  return { cells, bbox: bboxAroundPoint(center, clampedRadiusKm) };
 }
 
 /** Approximate H3 average hexagon edge length in km, by resolution (0-15). */

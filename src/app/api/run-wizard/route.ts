@@ -10,7 +10,8 @@ import {
   buildDemoCrawlFixtures,
   buildDemoPageSpeedFixtures,
 } from "@/demoData/geelongElectrical.js";
-import type { IdealLocalBusinessProfile, ScoreWeights } from "@/types/index.js";
+import { DEFAULT_SCORE_WEIGHTS } from "@/types/index.js";
+import type { IdealLocalBusinessProfile, ScoreCategory, ScoreWeights } from "@/types/index.js";
 
 export interface RunWizardRequestBody {
   sectorId?: string;
@@ -20,8 +21,33 @@ export interface RunWizardRequestBody {
   weights?: Partial<ScoreWeights>;
 }
 
+const VALID_WEIGHT_KEYS = new Set(Object.keys(DEFAULT_SCORE_WEIGHTS));
+
+/** Only string keys, and only finite non-negative numbers, survive — everything else (typos, injected keys, NaN/Infinity/strings) is dropped rather than trusted. */
+function parseWeights(value: unknown): Partial<ScoreWeights> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const result: Partial<ScoreWeights> = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (VALID_WEIGHT_KEYS.has(key) && typeof val === "number" && Number.isFinite(val) && val >= 0) {
+      result[key as ScoreCategory] = val;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function parseNonNegativeNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as RunWizardRequestBody;
+  const rawBody = (await request.json().catch(() => ({}))) as RunWizardRequestBody;
+  const body: RunWizardRequestBody = {
+    sectorId: typeof rawBody.sectorId === "string" ? rawBody.sectorId : undefined,
+    independentOnly: rawBody.independentOnly !== false,
+    minReviewCount: parseNonNegativeNumber(rawBody.minReviewCount, 15),
+    minRating: parseNonNegativeNumber(rawBody.minRating, 3.5),
+    weights: parseWeights(rawBody.weights),
+  };
   const sectorId = body.sectorId ?? DEMO_SECTOR_ID;
 
   const sector = sectorTaxonomy.nodes.get(sectorId);

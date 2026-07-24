@@ -30,7 +30,8 @@ function keysFor(record: BusinessRecord): string[] {
   if (domain) keys.push(`domain:${domain}`);
   const phone = normalisePhone(record.contact.phone);
   if (phone) keys.push(`phone:${phone}`);
-  keys.push(`addr:${normaliseAddress(record.contact.address.formatted)}`);
+  const address = normaliseAddress(record.contact.address.formatted);
+  if (address) keys.push(`addr:${address}`);
   return keys;
 }
 

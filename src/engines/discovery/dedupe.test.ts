@@ -41,4 +41,11 @@ describe("dedupeBusinessRecords", () => {
     const merged = dedupeBusinessRecords([a, b]);
     expect(merged).toHaveLength(2);
   });
+
+  it("does not merge unrelated businesses that both have a blank address and no other shared identifier", () => {
+    const a = record({ id: "a", name: "Acme Plumbing", contact: { address: { formatted: "  ", country: "Australia" }, location: { lat: 0, lng: 0 } } });
+    const b = record({ id: "b", name: "Other Business", contact: { address: { formatted: "", country: "Australia" }, location: { lat: 1, lng: 1 } } });
+    const merged = dedupeBusinessRecords([a, b]);
+    expect(merged).toHaveLength(2);
+  });
 });
