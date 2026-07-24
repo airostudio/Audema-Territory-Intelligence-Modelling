@@ -1,0 +1,25 @@
+{
+  "name": "audema-territory-intelligence-modelling",
+  "version": "0.1.0",
+  "description": "Audema Territory Intelligence Modelling — local account-based marketing platform that maps a sector across a territory, audits businesses for marketing opportunity, scores them, and generates tiered campaigns.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/examples/geelongElectricalWalkthrough.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "h3-js": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
