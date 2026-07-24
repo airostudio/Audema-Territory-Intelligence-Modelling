@@ -5,10 +5,10 @@ identify businesses with a measurable marketing problem, and generate a
 campaign built for that local market.
 
 This repository is currently an **architecture scaffold** — domain types,
-engine interfaces, and one worked example with static fixtures instead of
-live API calls. It is meant to be the foundation the real Google
-Places / Overpass / PageSpeed integrations, a PostGIS-backed store, and a UI
-get built on top of.
+engine interfaces, a deployable Next.js wizard demo, and one worked example,
+all running against static fixtures instead of live API calls. It is meant
+to be the foundation the real Google Places / Overpass / PageSpeed
+integrations and a PostGIS-backed store get built on top of.
 
 ## Wizard → Engines
 
@@ -50,21 +50,38 @@ Profile, Signals, OpportunityScore, Campaign, Compliance records) live in
   normalised address, keeping every source record rather than silently
   picking one.
 
-## Running the example
+## Running the wizard demo (Next.js app)
 
 ```bash
 npm install
-npm run dev        # runs src/examples/geelongElectricalWalkthrough.ts
+npm run dev         # next dev — open http://localhost:3000
+npm run build        # next build, deployable to Vercel etc.
+npm start             # serve the production build
+```
+
+`src/app` is a small Next.js App Router UI over the same pipeline: pick a
+sector, tune the Ideal Local Business Profile and Opportunity Score weights,
+and run the wizard. It calls `POST /api/run-wizard`
+(`src/app/api/run-wizard/route.ts`), which runs
+`runWizardPipeline` (`src/runWizardPipeline.ts`) against the fixed demo
+dataset in `src/demoData/geelongElectrical.ts` — commercial electrical
+contractors within 30km of Geelong, VIC, the spec's "Example wizard search".
+Only that one sector has fixture data wired up; picking any other sector in
+the dropdown returns a clear "no dataset yet" error rather than fabricating
+results.
+
+## Running the CLI example
+
+```bash
+npm run example      # runs src/examples/geelongElectricalWalkthrough.ts
 npm run typecheck
 npm test
 ```
 
-The example reproduces the spec's "Example wizard search" — commercial
-electrical contractors within 30km of Geelong, VIC — end to end using static
-fixtures for geocoding, discovery, PageSpeed, and HTML crawling, so it runs
-fully offline. It prints the resolved territory, the ranked opportunity
-list, generated campaigns, the market intelligence summary, and a benchmark
-report title.
+The example calls the same `runWizardPipeline` + demo dataset as the web
+app, end to end, fully offline, and prints the resolved territory, the
+ranked opportunity list, generated campaigns, the market intelligence
+summary, and a benchmark report title to the console.
 
 ## What's stubbed, not implemented
 

@@ -1,0 +1,238 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0b0d12;
+  --panel: #151822;
+  --panel-border: #262b3a;
+  --text: #e8eaf0;
+  --muted: #9aa1b4;
+  --accent: #5b7fff;
+
+  --tier-urgent: #e3543f;
+  --tier-strong: #e08a34;
+  --tier-nurture: #d9b53c;
+  --tier-low_fit: #6b7180;
+  --tier-existing_client: #3fae63;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f6fa;
+    --panel: #ffffff;
+    --panel-border: #dfe2ea;
+    --text: #171a21;
+    --muted: #5b6172;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.hero h1 {
+  font-size: 1.9rem;
+  margin: 0 0 0.35rem;
+}
+
+.hero p {
+  color: var(--muted);
+  margin: 0 0 2rem;
+  max-width: 60ch;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+select,
+input[type="number"] {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.weight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.weight-grid label {
+  display: flex;
+  justify-content: space-between;
+}
+
+button.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error-banner {
+  background: color-mix(in srgb, var(--tier-urgent) 15%, transparent);
+  border: 1px solid var(--tier-urgent);
+  color: var(--tier-urgent);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.stat {
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+
+.stat .value {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.stat .label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.opportunity-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: start;
+}
+
+.tier-pin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-top: 0.3rem;
+}
+
+.opportunity-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.opportunity-card .meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.opportunity-card ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.offer-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.offer-tag {
+  font-size: 0.72rem;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.score-badge {
+  text-align: right;
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
