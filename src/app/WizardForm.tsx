@@ -52,6 +52,7 @@ interface CampaignView {
 }
 
 interface WizardResult {
+  dataSource: "live" | "demo";
   sectorPath: string[];
   territory: { name: string; areaSqKm: number; cellCount: number };
   matchingBusinessCount: number;
@@ -87,8 +88,18 @@ const TIER_LABELS: Record<OpportunityView["tier"], string> = {
   existing_client: "Existing client",
 };
 
-export function WizardForm({ sectorOptions, defaultSectorId }: { sectorOptions: SectorOption[]; defaultSectorId: string }) {
+export function WizardForm({
+  sectorOptions,
+  defaultSectorId,
+  liveModeEnabled,
+}: {
+  sectorOptions: SectorOption[];
+  defaultSectorId: string;
+  liveModeEnabled: boolean;
+}) {
   const [sectorId, setSectorId] = useState(defaultSectorId);
+  const [territoryQuery, setTerritoryQuery] = useState("Geelong, VIC, Australia");
+  const [radiusKm, setRadiusKm] = useState(25);
   const [independentOnly, setIndependentOnly] = useState(true);
   const [minReviewCount, setMinReviewCount] = useState(15);
   const [minRating, setMinRating] = useState(3.5);
@@ -105,7 +116,14 @@ export function WizardForm({ sectorOptions, defaultSectorId }: { sectorOptions: 
       const res = await fetch("/api/run-wizard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sectorId, independentOnly, minReviewCount, minRating, weights }),
+        body: JSON.stringify({
+          sectorId,
+          independentOnly,
+          minReviewCount,
+          minRating,
+          weights,
+          ...(liveModeEnabled ? { territoryQuery, radiusKm } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -126,9 +144,19 @@ export function WizardForm({ sectorOptions, defaultSectorId }: { sectorOptions: 
         <h2>Step 1–2 · Territory &amp; sector</h2>
         <div className="field-row">
           <div>
-            <label htmlFor="territory">Territory (fixed in this demo)</label>
-            <input id="territory" value="Geelong, VIC — 30km radius" disabled />
+            <label htmlFor="territory">{liveModeEnabled ? "Territory" : "Territory (fixed in this demo)"}</label>
+            {liveModeEnabled ? (
+              <input id="territory" value={territoryQuery} onChange={(e) => setTerritoryQuery(e.target.value)} placeholder="e.g. Geelong, VIC, Australia" />
+            ) : (
+              <input id="territory" value="Geelong, VIC — 30km radius" disabled />
+            )}
           </div>
+          {liveModeEnabled && (
+            <div>
+              <label htmlFor="radiusKm">Radius (km)</label>
+              <input id="radiusKm" type="number" min={1} max={50} value={radiusKm} onChange={(e) => setRadiusKm(Number(e.target.value))} />
+            </div>
+          )}
           <div>
             <label htmlFor="sector">Sector</label>
             <select id="sector" value={sectorId} onChange={(e) => setSectorId(e.target.value)}>
@@ -204,7 +232,12 @@ function Results({ result }: { result: WizardResult }) {
   return (
     <div style={{ marginTop: "2rem" }}>
       <section className="panel">
-        <h2>Market intelligence — {result.sectorPath.join(" > ")}</h2>
+        <h2>
+          Market intelligence — {result.sectorPath.join(" > ")}{" "}
+          <span style={{ fontSize: "0.7rem", fontWeight: 400, color: "var(--muted)" }}>
+            ({result.dataSource === "live" ? "live Google Places / PageSpeed data" : "demo fixture data"})
+          </span>
+        </h2>
         <div className="stat-row">
           <Stat label="Matching businesses" value={result.matchingBusinessCount} />
           <Stat label="No website" value={result.marketIntelligence.withNoWebsite} />

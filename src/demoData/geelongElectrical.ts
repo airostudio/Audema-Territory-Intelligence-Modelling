@@ -10,6 +10,9 @@
  */
 
 import type { BusinessRecord, IdealLocalBusinessProfile, TerritoryDefinition } from "../types/index.js";
+import { StaticGeocoder } from "../engines/territory/index.js";
+import { StaticDiscoverySource } from "../engines/discovery/index.js";
+import { StaticHtmlCrawler, StaticPageSpeedClient } from "../engines/audit/index.js";
 
 export const DEMO_NOW = "2026-07-24T00:00:00.000Z";
 export const DEMO_SECTOR_ID = "commercial_electrical_contractors";
@@ -150,4 +153,14 @@ export function buildDemoCrawlFixtures() {
       },
     ],
   ]);
+}
+
+/** Bundles the fixture-backed Geocoder/DiscoverySource/PageSpeedClient/HtmlCrawler for runWizardPipeline's demo path. */
+export function buildDemoEngines() {
+  return {
+    geocoder: new StaticGeocoder(new Map()),
+    sources: [new StaticDiscoverySource("google_places", buildDemoBusinesses())],
+    pageSpeed: new StaticPageSpeedClient(buildDemoPageSpeedFixtures()),
+    crawler: new StaticHtmlCrawler(buildDemoCrawlFixtures()),
+  };
 }

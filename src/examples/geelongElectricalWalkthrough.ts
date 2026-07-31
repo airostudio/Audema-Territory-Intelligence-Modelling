@@ -11,16 +11,7 @@
 
 import { sectorTaxonomy } from "../data/sectorTaxonomy.js";
 import { runWizardPipeline } from "../runWizardPipeline.js";
-import {
-  DEMO_BENCHMARK,
-  DEMO_NOW,
-  DEMO_PROFILE,
-  DEMO_SECTOR_ID,
-  DEMO_TERRITORY,
-  buildDemoBusinesses,
-  buildDemoCrawlFixtures,
-  buildDemoPageSpeedFixtures,
-} from "../demoData/geelongElectrical.js";
+import { DEMO_BENCHMARK, DEMO_NOW, DEMO_PROFILE, DEMO_SECTOR_ID, DEMO_TERRITORY, buildDemoEngines } from "../demoData/geelongElectrical.js";
 
 async function main() {
   const result = await runWizardPipeline({
@@ -28,9 +19,7 @@ async function main() {
     sectorId: DEMO_SECTOR_ID,
     territory: DEMO_TERRITORY,
     profile: DEMO_PROFILE,
-    businesses: buildDemoBusinesses(),
-    pageSpeedFixtures: buildDemoPageSpeedFixtures(),
-    crawlFixtures: buildDemoCrawlFixtures(),
+    ...buildDemoEngines(),
     benchmark: DEMO_BENCHMARK,
     now: DEMO_NOW,
   });
