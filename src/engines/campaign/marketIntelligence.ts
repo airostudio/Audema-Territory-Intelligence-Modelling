@@ -50,7 +50,10 @@ export function buildMarketIntelligenceSummary(scored: ScoredBusiness[], audits:
     averageReviewCount,
     underservedSuburbs,
     mostFrequentOffers: sortedOffers.slice(0, 5),
-    leastFrequentOffers: sortedOffers.slice(-5).reverse(),
+    // Least-frequent is drawn from whatever's left after the top 5 rather than slice(-5) of the
+    // full list, so with 10 or fewer distinct offers (the common case) the same offer never gets
+    // labeled both "most" and "least" promoted at once.
+    leastFrequentOffers: sortedOffers.slice(5).slice(-5).reverse(),
     saturationVerdict,
   };
 }
@@ -95,7 +98,9 @@ export function buildBenchmarkReport(
     },
     pctGoodMobileExperience: mobileScores.length ? goodMobile / mobileScores.length : 0,
     mostPromotedServices: sortedOffers.slice(0, 5),
-    leastPromotedServices: sortedOffers.slice(-5).reverse(),
+    // Same reasoning as mostFrequentOffers/leastFrequentOffers above: draw from the remainder
+    // after the top 5 so a sparsely-recommended offer isn't shown as both most and least common.
+    leastPromotedServices: sortedOffers.slice(5).slice(-5).reverse(),
     commonConversionProblems: topProblems,
     opportunities: topProblems.slice(0, 5).map((p) => `Address: ${p}`),
   };

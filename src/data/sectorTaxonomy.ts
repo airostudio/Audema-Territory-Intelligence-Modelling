@@ -150,10 +150,19 @@ const nodes: SectorNode[] = [
   },
 
   {
+    id: "electrical",
+    label: "Electrical",
+    path: ["Construction", "Electrical"],
+    parentId: "construction",
+    googlePlaceTypes: ["electrician"],
+    osmTags: [{ craft: "electrician" }],
+    searchPhrases: ["electrician"],
+  },
+  {
     id: "commercial_electrical_contractors",
     label: "Commercial Electrical Contractors",
     path: ["Construction", "Electrical", "Commercial Electrical Contractors"],
-    parentId: "construction",
+    parentId: "electrical",
     googlePlaceTypes: ["electrician"],
     osmTags: [{ craft: "electrician", scope: "commercial" }],
     searchPhrases: ["commercial electrician", "commercial electrical contractor"],

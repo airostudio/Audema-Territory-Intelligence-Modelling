@@ -13,6 +13,9 @@ export async function resolveTerritory(
   definition: TerritoryDefinition,
   geocoder: Geocoder,
 ): Promise<ResolvedTerritory> {
+  if (definition.selections.length === 0) {
+    throw new Error(`Territory "${definition.name}" has no selections (radius, polygon, place, etc.) — nothing to resolve.`);
+  }
   const resolution = definition.h3Resolution ?? DEFAULT_H3_RESOLUTION;
   const cellSets: Set<string>[] = [];
   const bboxes: BBox[] = [];

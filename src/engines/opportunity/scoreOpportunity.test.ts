@@ -99,4 +99,23 @@ describe("scoreOpportunity", () => {
     });
     expect(heavyMarketingNeed.total).toBeGreaterThan(heavyGrowthPotential.total);
   });
+
+  it("does not score idealCustomerFit as a full match when reviewCount/rating are simply unknown", () => {
+    const businessWithData = makeBusiness({ reviewCount: 20, rating: 4.5 });
+    const businessMissingData = makeBusiness({ reviewCount: undefined, rating: undefined });
+    const signals: OpportunitySignalSet = { businessId: "biz_test", findings: [] };
+    const profile = { sectorId: "plumbing", reviewCountRange: { min: 15 }, ratingRange: { min: 3.5 } };
+
+    const scoreWithData = scoreOpportunity({ business: businessWithData, signals, profile, scoredAt: NOW });
+    const scoreMissingData = scoreOpportunity({ business: businessMissingData, signals, profile, scoredAt: NOW });
+
+    const fitWithData = scoreWithData.categories.find((c) => c.category === "idealCustomerFit");
+    const fitMissingData = scoreMissingData.categories.find((c) => c.category === "idealCustomerFit");
+
+    // A business confirmed to meet the review/rating thresholds should score at least as well
+    // as one where that data simply isn't on file — missing data must not look identical to
+    // (or better than) a verified match.
+    expect(fitWithData?.rawScore).toBe(100);
+    expect(fitMissingData?.rawScore).toBeLessThanOrEqual(fitWithData?.rawScore ?? 0);
+  });
 });

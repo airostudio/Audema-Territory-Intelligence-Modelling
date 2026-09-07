@@ -34,20 +34,25 @@ function scoreIdealCustomerFit(business: BusinessRecord, profile?: IdealLocalBus
       applicable: !!profile.customerBase,
     },
     {
+      // Unlike matchesProfile (a filter, which fails open on missing data so incomplete
+      // discovery records aren't silently excluded from results), this is scoring how
+      // well-*verified* the fit is — a business with no reviewCount on file shouldn't score
+      // identically to one confirmed to be within range, so this check is simply not
+      // applicable (excluded from the average) rather than auto-passing.
       label: "review count in range",
       pass:
-        !profile.reviewCountRange ||
-        business.reviewCount === undefined ||
-        ((profile.reviewCountRange.min ?? -Infinity) <= business.reviewCount && business.reviewCount <= (profile.reviewCountRange.max ?? Infinity)),
-      applicable: !!profile.reviewCountRange,
+        business.reviewCount !== undefined &&
+        (profile.reviewCountRange?.min ?? -Infinity) <= business.reviewCount &&
+        business.reviewCount <= (profile.reviewCountRange?.max ?? Infinity),
+      applicable: !!profile.reviewCountRange && business.reviewCount !== undefined,
     },
     {
       label: "rating in range",
       pass:
-        !profile.ratingRange ||
-        business.rating === undefined ||
-        ((profile.ratingRange.min ?? -Infinity) <= business.rating && business.rating <= (profile.ratingRange.max ?? Infinity)),
-      applicable: !!profile.ratingRange,
+        business.rating !== undefined &&
+        (profile.ratingRange?.min ?? -Infinity) <= business.rating &&
+        business.rating <= (profile.ratingRange?.max ?? Infinity),
+      applicable: !!profile.ratingRange && business.rating !== undefined,
     },
   ];
   const applicable = checks.filter((c) => c.applicable);

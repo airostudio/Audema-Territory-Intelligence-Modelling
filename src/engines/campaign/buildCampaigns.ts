@@ -64,7 +64,9 @@ function buildTier3(territory: TerritoryDefinition, sector: SectorNode): Tier3Ca
  * Campaign object per tier, per the spec's segmentation:
  * - urgent tier scores -> Tier 1 (one-to-one)
  * - strong tier scores -> Tier 2 (local sector campaign)
- * - everything else (nurture/low_fit) -> Tier 3 (territory awareness)
+ * - Tier 3 (territory awareness) runs whenever there's any outbound business at all —
+ *   it's broad sector/territory advertising, not specifically a nurture/low_fit catch-all,
+ *   so it still runs alongside Tier 1/2 even when every business qualified for one of those.
  * existing_client businesses are excluded from all outbound tiers.
  */
 export function buildCampaigns(territory: TerritoryDefinition, sector: SectorNode, scored: ScoredBusiness[]): Campaign[] {
