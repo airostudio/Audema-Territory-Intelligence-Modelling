@@ -7,6 +7,7 @@ import { GooglePlacesDiscoverySource, OsmOverpassDiscoverySource } from "@/engin
 import { RealPageSpeedClient, FetchHtmlCrawler } from "@/engines/audit/index.js";
 import { DEFAULT_SCORE_WEIGHTS } from "@/types/index.js";
 import type { IdealLocalBusinessProfile, ScoreCategory, ScoreWeights, TerritoryDefinition } from "@/types/index.js";
+import { createRateLimiter, getClientIp } from "@/lib/rateLimit.js";
 
 export interface RunWizardRequestBody {
   sectorId?: string;
@@ -28,48 +29,9 @@ const MAX_LIVE_BUSINESSES = 8;
 const MIN_RADIUS_KM = 1;
 const MAX_RADIUS_KM = 50;
 
-// Best-effort, per-instance rate limit on live searches — every one costs real, billed Google
-// API calls with no auth in front of this page. This is NOT a reliable global limit: Vercel can
-// run multiple instances of this function concurrently, each with its own copy of this Map, and
-// a cold start resets it. It stops a single runaway browser tab or naive script, nothing more;
-// a real limit needs a shared store (Redis/KV), which is a persistence decision, not this pass.
-const LIVE_RATE_LIMIT = { maxRequests: 6, windowMs: 10 * 60 * 1000 };
-const liveRequestLog = new Map<string, number[]>();
-let rateLimitSweepCounter = 0;
-
-/**
- * x-forwarded-for's leftmost entry is whatever the caller put there — trivially spoofable by
- * sending a fresh random value on every request, which would defeat the rate limit entirely.
- * x-real-ip and the rightmost x-forwarded-for entry are set by Vercel's own edge from the
- * actual observed connection, so those are what a client can't forge.
- */
-function getClientIp(request: Request): string {
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const hops = forwardedFor
-    ?.split(",")
-    .map((h) => h.trim())
-    .filter(Boolean);
-  return hops?.[hops.length - 1] ?? "unknown";
-}
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  // Periodically sweep the whole map rather than on every call — bounds its size against
-  // the steady trickle of distinct IPs that only ever show up once, without adding per-request cost.
-  if (++rateLimitSweepCounter % 500 === 0) {
-    for (const [key, timestamps] of liveRequestLog) {
-      const stillRecent = timestamps.filter((t) => now - t < LIVE_RATE_LIMIT.windowMs);
-      if (stillRecent.length === 0) liveRequestLog.delete(key);
-      else liveRequestLog.set(key, stillRecent);
-    }
-  }
-  const recent = (liveRequestLog.get(ip) ?? []).filter((t) => now - t < LIVE_RATE_LIMIT.windowMs);
-  recent.push(now);
-  liveRequestLog.set(ip, recent);
-  return recent.length > LIVE_RATE_LIMIT.maxRequests;
-}
+// Every live search costs real, billed Google API calls with no auth in front of this page —
+// see src/lib/rateLimit.ts for what this can and can't guarantee.
+const liveSearchLimiter = createRateLimiter(6, 10 * 60 * 1000);
 
 /** Only string keys, and only finite non-negative numbers, survive — everything else (typos, injected keys, NaN/Infinity/strings) is dropped rather than trusted. */
 function parseWeights(value: unknown): Partial<ScoreWeights> | undefined {
@@ -144,7 +106,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "territoryQuery is required, e.g. \"Geelong, VIC, Australia\"." }, { status: 400 });
   }
 
-  if (isRateLimited(getClientIp(request))) {
+  if (liveSearchLimiter.isRateLimited(getClientIp(request))) {
     return NextResponse.json(
       { error: "Too many live searches from this connection recently — each one makes real, billed Google API calls. Please wait a few minutes and try again." },
       { status: 429 },

@@ -81,13 +81,47 @@ label {
 }
 
 select,
-input[type="number"] {
+input[type="number"],
+input[type="text"],
+input:not([type]) {
   width: 100%;
   padding: 0.5rem 0.6rem;
   border-radius: 8px;
   border: 1px solid var(--panel-border);
   background: var(--bg);
   color: var(--text);
+}
+
+input:disabled {
+  opacity: 0.6;
+}
+
+.autocomplete-list {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.autocomplete-list li {
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.autocomplete-list li:hover {
+  background: var(--bg);
 }
 
 .checkbox-row {

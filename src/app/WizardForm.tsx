@@ -1,6 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+interface PlaceSuggestion {
+  placeId: string;
+  description: string;
+}
+
+const AUTOCOMPLETE_DEBOUNCE_MS = 250;
+const AUTOCOMPLETE_MIN_CHARS = 2;
+
+/** Territory text field with a live "type and click a suggestion" location picker, backed by /api/territory-suggestions. */
+function TerritoryAutocomplete({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (value.trim().length < AUTOCOMPLETE_MIN_CHARS) {
+      setSuggestions([]);
+      return;
+    }
+    const thisRequestId = ++requestIdRef.current;
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/territory-suggestions?q=${encodeURIComponent(value)}`);
+        const data = (await res.json()) as { suggestions?: PlaceSuggestion[] };
+        // Ignore stale responses from an earlier keystroke that resolved out of order.
+        if (thisRequestId === requestIdRef.current) {
+          setSuggestions(data.suggestions ?? []);
+          setIsOpen(true);
+        }
+      } catch {
+        if (thisRequestId === requestIdRef.current) setSuggestions([]);
+      }
+    }, AUTOCOMPLETE_DEBOUNCE_MS);
+    return () => clearTimeout(debounceRef.current);
+  }, [value]);
+
+  function selectSuggestion(suggestion: PlaceSuggestion) {
+    onChange(suggestion.description);
+    setSuggestions([]);
+    setIsOpen(false);
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        id="territory"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => suggestions.length > 0 && setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+        placeholder="Start typing a suburb, city, or region…"
+        autoComplete="off"
+      />
+      {isOpen && suggestions.length > 0 && (
+        <ul className="autocomplete-list">
+          {suggestions.map((s) => (
+            // onMouseDown (not onClick) fires before the input's onBlur, so the selection
+            // registers instead of the dropdown closing first and swallowing the click.
+            <li key={s.placeId} onMouseDown={() => selectSuggestion(s)}>
+              {s.description}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 interface SectorOption {
   id: string;
@@ -157,7 +227,7 @@ export function WizardForm({
           <div>
             <label htmlFor="territory">{liveModeEnabled ? "Territory" : "Territory (fixed in this demo)"}</label>
             {liveModeEnabled ? (
-              <input id="territory" value={territoryQuery} onChange={(e) => setTerritoryQuery(e.target.value)} placeholder="e.g. Geelong, VIC, Australia" />
+              <TerritoryAutocomplete value={territoryQuery} onChange={setTerritoryQuery} />
             ) : (
               <input id="territory" value="Geelong, VIC — 30km radius" disabled />
             )}
