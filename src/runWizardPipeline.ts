@@ -44,6 +44,8 @@ export interface RunWizardPipelineResult {
   campaigns: Campaign[];
   marketIntelligence: MarketIntelligenceSummary;
   benchmarkReport: LocalMarketBenchmarkReport;
+  /** Discovery sources that failed (e.g. Overpass under load) — results below are from whichever sources succeeded, not fabricated to cover the gap. */
+  sourceErrors: { source: string; message: string }[];
 }
 
 /**
@@ -69,7 +71,7 @@ export async function runWizardPipeline(input: RunWizardPipelineInput): Promise<
 
   const resolved = await resolveTerritory(input.territory, input.geocoder);
 
-  const { matchingProfile: allMatching } = await discoverBusinesses({ territory: resolved, sector }, input.sources, input.profile);
+  const { matchingProfile: allMatching, sourceErrors } = await discoverBusinesses({ territory: resolved, sector }, input.sources, input.profile);
   const matchingProfile = input.maxBusinesses ? allMatching.slice(0, input.maxBusinesses) : allMatching;
 
   const benchmark = input.benchmark ?? computeAutoBenchmark(allMatching);
@@ -115,5 +117,6 @@ export async function runWizardPipeline(input: RunWizardPipelineInput): Promise<
     campaigns,
     marketIntelligence,
     benchmarkReport,
+    sourceErrors,
   };
 }

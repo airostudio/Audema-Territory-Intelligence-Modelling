@@ -20,13 +20,29 @@ export interface RunWizardRequestBody {
 }
 
 const VALID_WEIGHT_KEYS = new Set(Object.keys(DEFAULT_SCORE_WEIGHTS));
-// Each audited business runs one PageSpeed Insights call (routinely 15-30s+) plus a
-// crawl, all in parallel — but Google's PageSpeed backend visibly slows down / queues
-// under concurrent load, so a lower cap keeps a real search inside the 60s function
-// budget (see vercel.json) even when several businesses' sites are genuinely slow.
-const MAX_LIVE_BUSINESSES = 5;
+// Each audited business runs one PageSpeed Insights call (routinely 15-30s+, now capped at
+// 25s, see RealPageSpeedClient) plus a crawl, all in parallel — but Google's PageSpeed
+// backend visibly slows down / queues under concurrent load, so this stays well under the
+// function's maxDuration (see vercel.json) rather than pushed to the theoretical ceiling.
+const MAX_LIVE_BUSINESSES = 8;
 const MIN_RADIUS_KM = 1;
 const MAX_RADIUS_KM = 50;
+
+// Best-effort, per-instance rate limit on live searches — every one costs real, billed Google
+// API calls with no auth in front of this page. This is NOT a reliable global limit: Vercel can
+// run multiple instances of this function concurrently, each with its own copy of this Map, and
+// a cold start resets it. It stops a single runaway browser tab or naive script, nothing more;
+// a real limit needs a shared store (Redis/KV), which is a persistence decision, not this pass.
+const LIVE_RATE_LIMIT = { maxRequests: 6, windowMs: 10 * 60 * 1000 };
+const liveRequestLog = new Map<string, number[]>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const recent = (liveRequestLog.get(ip) ?? []).filter((t) => now - t < LIVE_RATE_LIMIT.windowMs);
+  recent.push(now);
+  liveRequestLog.set(ip, recent);
+  return recent.length > LIVE_RATE_LIMIT.maxRequests;
+}
 
 /** Only string keys, and only finite non-negative numbers, survive — everything else (typos, injected keys, NaN/Infinity/strings) is dropped rather than trusted. */
 function parseWeights(value: unknown): Partial<ScoreWeights> | undefined {
@@ -101,6 +117,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "territoryQuery is required, e.g. \"Geelong, VIC, Australia\"." }, { status: 400 });
   }
 
+  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "unknown";
+  if (isRateLimited(clientIp)) {
+    return NextResponse.json(
+      { error: "Too many live searches from this connection recently — each one makes real, billed Google API calls. Please wait a few minutes and try again." },
+      { status: 429 },
+    );
+  }
+
   try {
     const geocoder = new GoogleGeocoder(apiKey);
     const center = await geocoder.geocodeText(territoryQuery);
@@ -153,5 +177,6 @@ function toResponseBody(result: Awaited<ReturnType<typeof runWizardPipeline>>, d
     campaigns: result.campaigns,
     marketIntelligence: result.marketIntelligence,
     benchmarkReport: result.benchmarkReport,
+    sourceErrors: result.sourceErrors,
   };
 }

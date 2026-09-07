@@ -60,6 +60,7 @@ interface WizardResult {
   campaigns: CampaignView[];
   marketIntelligence: MarketIntelligenceView;
   benchmarkReport: BenchmarkReportView;
+  sourceErrors: { source: string; message: string }[];
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -241,6 +242,11 @@ export function WizardForm({
 function Results({ result }: { result: WizardResult }) {
   return (
     <div style={{ marginTop: "2rem" }}>
+      {result.sourceErrors.length > 0 && (
+        <div className="error-banner">
+          {result.sourceErrors.map((e) => `${e.source} discovery unavailable (${e.message})`).join("; ")} — results below are from the sources that did respond, not a complete picture of the territory.
+        </div>
+      )}
       <section className="panel">
         <h2>
           Market intelligence — {result.sectorPath.join(" > ")}{" "}

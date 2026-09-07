@@ -21,8 +21,13 @@ interface GoogleGeocodingResponse {
  * is present. For real boundary polygons, a dedicated boundary dataset or
  * the Google Maps Platform "Places" boundary data would be needed.
  */
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 export class GoogleGeocoder implements Geocoder {
-  constructor(private readonly apiKey: string) {}
+  constructor(
+    private readonly apiKey: string,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  ) {}
 
   async geocode(location: AdministrativeLocation): Promise<GeocodeResult> {
     const query = [location.suburb, location.postcode, location.city, location.county, location.stateOrProvince, location.country]
@@ -41,7 +46,14 @@ export class GoogleGeocoder implements Geocoder {
     url.searchParams.set("address", query);
     url.searchParams.set("key", this.apiKey);
 
-    const res = await fetch(url.toString());
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       throw new Error(`Google Geocoding API request failed: HTTP ${res.status}`);
     }

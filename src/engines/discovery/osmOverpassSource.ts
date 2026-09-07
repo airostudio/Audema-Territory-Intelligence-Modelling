@@ -73,20 +73,34 @@ function toBusinessRecord(el: OverpassElement, sectorId: string, fetchedAt: stri
 export class OsmOverpassDiscoverySource implements DiscoverySource {
   name = "osm_overpass" as const;
 
-  constructor(private readonly endpoint: string = "https://overpass-api.de/api/interpreter") {}
+  constructor(
+    private readonly endpoint: string = "https://overpass-api.de/api/interpreter",
+    private readonly timeoutMs: number = 30_000,
+  ) {}
 
   async discover(query: DiscoveryQuery): Promise<BusinessRecord[]> {
     if (!query.sector.osmTags.length) return [];
     const overpassQuery = buildQuery(query.territory.bbox, query.sector.osmTags);
 
-    const res = await fetch(this.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "AudemaTerritoryIntelligenceModelling/0.1 (business discovery; contact via project repo)",
-      },
-      body: `data=${encodeURIComponent(overpassQuery)}`,
-    });
+    // The query itself declares [timeout:25] to Overpass, but that only bounds how long the
+    // server spends evaluating it — a stalled connection or a slow public instance under load
+    // needs its own client-side deadline so this source can't hang the whole wizard request.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(this.endpoint, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "AudemaTerritoryIntelligenceModelling/0.1 (business discovery; contact via project repo)",
+        },
+        body: `data=${encodeURIComponent(overpassQuery)}`,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       throw new Error(`Overpass API request failed: HTTP ${res.status}`);

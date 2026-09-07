@@ -40,6 +40,8 @@ interface GooglePlacesTextSearchResponse {
   error?: { message: string; status: string };
 }
 
+const DEFAULT_TIMEOUT_MS = 15_000;
+
 function componentByType(components: GooglePlaceAddressComponent[] | undefined, type: string): string | undefined {
   return components?.find((c) => c.types.includes(type))?.longText;
 }
@@ -85,6 +87,7 @@ export class GooglePlacesDiscoverySource implements DiscoverySource {
   constructor(
     private readonly apiKey: string,
     private readonly maxResults: number = 20,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {}
 
   async discover(query: DiscoveryQuery): Promise<BusinessRecord[]> {
@@ -97,20 +100,33 @@ export class GooglePlacesDiscoverySource implements DiscoverySource {
     };
     // Approximate search radius from the bbox diagonal half-height, capped at the Places API's 50km max.
     const radiusMeters = Math.min(50_000, ((bbox.maxLat - bbox.minLat) * 111_320) / 2 || 25_000);
+    // includedType narrows results to Google's own place-type taxonomy when the sector maps
+    // to one, on top of the free-text query — meaningfully cuts down irrelevant matches for
+    // sectors like restaurants/mechanics where the text query alone is fairly generic.
+    const includedType = query.sector.googlePlaceTypes[0];
 
-    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": this.apiKey,
-        "X-Goog-FieldMask": FIELD_MASK,
-      },
-      body: JSON.stringify({
-        textQuery,
-        locationBias: { circle: { center, radius: radiusMeters } },
-        maxResultCount: this.maxResults,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": this.apiKey,
+          "X-Goog-FieldMask": FIELD_MASK,
+        },
+        body: JSON.stringify({
+          textQuery,
+          ...(includedType ? { includedType } : {}),
+          locationBias: { circle: { center, radius: radiusMeters } },
+          maxResultCount: this.maxResults,
+        }),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       const body = (await res.json().catch(() => undefined)) as GooglePlacesTextSearchResponse | undefined;
