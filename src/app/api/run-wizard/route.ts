@@ -20,7 +20,11 @@ export interface RunWizardRequestBody {
 }
 
 const VALID_WEIGHT_KEYS = new Set(Object.keys(DEFAULT_SCORE_WEIGHTS));
-const MAX_LIVE_BUSINESSES = 10;
+// Each audited business runs one PageSpeed Insights call (routinely 15-30s+) plus a
+// crawl, all in parallel — but Google's PageSpeed backend visibly slows down / queues
+// under concurrent load, so a lower cap keeps a real search inside the 60s function
+// budget (see vercel.json) even when several businesses' sites are genuinely slow.
+const MAX_LIVE_BUSINESSES = 5;
 const MIN_RADIUS_KM = 1;
 const MAX_RADIUS_KM = 50;
 

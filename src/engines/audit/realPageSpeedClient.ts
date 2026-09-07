@@ -12,14 +12,24 @@ interface PageSpeedApiResponse {
   error?: { message: string };
 }
 
+const DEFAULT_TIMEOUT_MS = 25_000;
+
 /**
  * PageSpeedClient backed by the Google PageSpeed Insights API v5. Requires
  * GOOGLE_MAPS_API_KEY (or a dedicated key) with the "PageSpeed Insights API"
  * enabled — it's a separate opt-in from Places/Geocoding on the same
  * Google Cloud project, and unlike those it has no billing requirement.
+ *
+ * PageSpeed's own analysis is often the slowest external call in the whole
+ * pipeline (routinely 15-30s+, worse for exactly the slow sites this app is
+ * trying to flag), so every call is bounded by a hard timeout — one bad
+ * site should never be able to eat the entire wizard request's time budget.
  */
 export class RealPageSpeedClient implements PageSpeedClient {
-  constructor(private readonly apiKey: string) {}
+  constructor(
+    private readonly apiKey: string,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  ) {}
 
   async analyze(url: string, strategy: "mobile" | "desktop"): Promise<PageSpeedScores> {
     const apiUrl = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
@@ -30,7 +40,14 @@ export class RealPageSpeedClient implements PageSpeedClient {
       apiUrl.searchParams.append("category", category);
     }
 
-    const res = await fetch(apiUrl.toString());
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(apiUrl.toString(), { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     const body = (await res.json()) as PageSpeedApiResponse;
     if (!res.ok || !body.lighthouseResult) {
       throw new Error(`PageSpeed Insights API request failed for ${url}: HTTP ${res.status} ${body.error?.message ?? ""}`.trim());

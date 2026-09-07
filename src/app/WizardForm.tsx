@@ -125,14 +125,24 @@ export function WizardForm({
           ...(liveModeEnabled ? { territoryQuery, radiusKm } : {}),
         }),
       });
-      const data = await res.json();
+      let data: unknown;
+      try {
+        data = await res.json();
+      } catch {
+        setError(
+          res.status === 504 || res.status === 502
+            ? "The live search took too long and timed out (this happens when several businesses' websites are slow to audit). Try a smaller radius, fewer minimum reviews, or a less busy sector."
+            : `The wizard API returned an unexpected response (HTTP ${res.status}).`,
+        );
+        return;
+      }
       if (!res.ok) {
-        setError(data.error ?? "Something went wrong running the wizard.");
+        setError((data as { error?: string }).error ?? "Something went wrong running the wizard.");
         return;
       }
       setResult(data as WizardResult);
     } catch {
-      setError("Could not reach the Audema wizard API.");
+      setError("Could not reach the Audema wizard API — check your internet connection and try again.");
     } finally {
       setLoading(false);
     }

@@ -22,17 +22,12 @@ export async function auditWebsite(
     return { businessId: business.id, auditedAt: now };
   }
 
-  const [mobile, desktop, crawl] = await Promise.all([
-    pageSpeed.analyze(url, "mobile"),
-    pageSpeed.analyze(url, "desktop"),
-    crawler.crawl(url),
-  ]);
+  const [mobile, crawl] = await Promise.all([pageSpeed.analyze(url, "mobile"), crawler.crawl(url)]);
 
   return {
     businessId: business.id,
     url,
     pageSpeedMobileScore: confirmed(mobile.performance, `PageSpeed Insights mobile performance ${mobile.performance}/100`, "pagespeed", now),
-    pageSpeedDesktopScore: confirmed(desktop.performance, `PageSpeed Insights desktop performance ${desktop.performance}/100`, "pagespeed", now),
     accessibilityScore: confirmed(mobile.accessibility, `PageSpeed Insights accessibility ${mobile.accessibility}/100`, "pagespeed", now),
     seoScore: confirmed(mobile.seo, `PageSpeed Insights SEO ${mobile.seo}/100`, "pagespeed", now),
     bestPracticesScore: confirmed(mobile.bestPractices, `PageSpeed Insights best practices ${mobile.bestPractices}/100`, "pagespeed", now),
