@@ -65,29 +65,50 @@ function toBusinessRecord(el: OverpassElement, sectorId: string, fetchedAt: stri
   };
 }
 
+// Independently-operated public Overpass instances — the default overpass-api.de is the most
+// commonly used and therefore the most prone to 5xx/timeout under load. Falling back to a
+// second mirror roughly doubles the chance a real, transient overload on one server doesn't
+// take out OSM discovery for the whole search.
+const DEFAULT_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+const DEFAULT_TIMEOUT_PER_ENDPOINT_MS = 15_000;
+
 /**
  * Discovery source backed by the public OpenStreetMap Overpass API. No API
  * key required, but usage is subject to Overpass's fair-use policy — this
- * client sends a descriptive User-Agent and a single bounded-timeout query
- * per discover() call, per https://operations.osmfoundation.org/policies/overpass/.
+ * client sends a descriptive User-Agent and a bounded-timeout query per
+ * endpoint attempted, per https://operations.osmfoundation.org/policies/overpass/.
  */
 export class OsmOverpassDiscoverySource implements DiscoverySource {
   name = "osm_overpass" as const;
 
   constructor(
-    private readonly endpoint: string = "https://overpass-api.de/api/interpreter",
-    private readonly timeoutMs: number = 30_000,
+    private readonly endpoints: string[] = DEFAULT_ENDPOINTS,
+    private readonly timeoutMsPerEndpoint: number = DEFAULT_TIMEOUT_PER_ENDPOINT_MS,
   ) {}
 
   async discover(query: DiscoveryQuery): Promise<BusinessRecord[]> {
     if (!query.sector.osmTags.length) return [];
     const overpassQuery = buildQuery(query.territory.bbox, query.sector.osmTags);
+    const fetchedAt = new Date().toISOString();
 
+    const attemptErrors: string[] = [];
+    for (const endpoint of this.endpoints) {
+      try {
+        const body = await this.queryEndpoint(endpoint, overpassQuery);
+        return body.elements.map((el) => toBusinessRecord(el, query.sector.id, fetchedAt)).filter((r): r is BusinessRecord => !!r);
+      } catch (err) {
+        attemptErrors.push(`${endpoint}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    throw new Error(`All Overpass endpoints failed — ${attemptErrors.join("; ")}`);
+  }
+
+  private async queryEndpoint(endpoint: string, overpassQuery: string): Promise<OverpassResponse> {
     // The query itself declares [timeout:25] to Overpass, but that only bounds how long the
     // server spends evaluating it — a stalled connection or a slow public instance under load
-    // needs its own client-side deadline so this source can't hang the whole wizard request.
+    // needs its own client-side deadline so a single endpoint can't hang the whole discovery phase.
     const res = await fetchWithTimeout(
-      this.endpoint,
+      endpoint,
       {
         method: "POST",
         headers: {
@@ -96,15 +117,12 @@ export class OsmOverpassDiscoverySource implements DiscoverySource {
         },
         body: `data=${encodeURIComponent(overpassQuery)}`,
       },
-      this.timeoutMs,
+      this.timeoutMsPerEndpoint,
     );
 
     if (!res.ok) {
-      throw new Error(`Overpass API request failed: HTTP ${res.status}`);
+      throw new Error(`HTTP ${res.status}`);
     }
-
-    const body = (await res.json()) as OverpassResponse;
-    const fetchedAt = new Date().toISOString();
-    return body.elements.map((el) => toBusinessRecord(el, query.sector.id, fetchedAt)).filter((r): r is BusinessRecord => !!r);
+    return (await res.json()) as OverpassResponse;
   }
 }
