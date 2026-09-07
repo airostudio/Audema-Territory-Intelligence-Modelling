@@ -19,7 +19,10 @@ const FIELD_MASK = [
 interface GooglePlaceAddressComponent {
   longText: string;
   shortText: string;
-  types: string[];
+  // Declared optional even though Google's docs always show it present — the response is an
+  // unchecked JSON cast (`as GooglePlacesTextSearchResponse`), so the type must reflect what a
+  // malformed/partial real response can actually contain, not just the documented happy path.
+  types?: string[];
 }
 
 interface GooglePlace {
@@ -43,8 +46,8 @@ interface GooglePlacesTextSearchResponse {
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-function componentByType(components: GooglePlaceAddressComponent[] | undefined, type: string): string | undefined {
-  return components?.find((c) => c.types.includes(type))?.longText;
+export function componentByType(components: GooglePlaceAddressComponent[] | undefined, type: string): string | undefined {
+  return components?.find((c) => c.types?.includes(type))?.longText;
 }
 
 function toBusinessRecord(place: GooglePlace, sectorId: string, fetchedAt: string): BusinessRecord | undefined {
