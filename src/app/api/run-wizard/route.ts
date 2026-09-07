@@ -35,9 +35,36 @@ const MAX_RADIUS_KM = 50;
 // a real limit needs a shared store (Redis/KV), which is a persistence decision, not this pass.
 const LIVE_RATE_LIMIT = { maxRequests: 6, windowMs: 10 * 60 * 1000 };
 const liveRequestLog = new Map<string, number[]>();
+let rateLimitSweepCounter = 0;
+
+/**
+ * x-forwarded-for's leftmost entry is whatever the caller put there — trivially spoofable by
+ * sending a fresh random value on every request, which would defeat the rate limit entirely.
+ * x-real-ip and the rightmost x-forwarded-for entry are set by Vercel's own edge from the
+ * actual observed connection, so those are what a client can't forge.
+ */
+function getClientIp(request: Request): string {
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const hops = forwardedFor
+    ?.split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  return hops?.[hops.length - 1] ?? "unknown";
+}
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
+  // Periodically sweep the whole map rather than on every call — bounds its size against
+  // the steady trickle of distinct IPs that only ever show up once, without adding per-request cost.
+  if (++rateLimitSweepCounter % 500 === 0) {
+    for (const [key, timestamps] of liveRequestLog) {
+      const stillRecent = timestamps.filter((t) => now - t < LIVE_RATE_LIMIT.windowMs);
+      if (stillRecent.length === 0) liveRequestLog.delete(key);
+      else liveRequestLog.set(key, stillRecent);
+    }
+  }
   const recent = (liveRequestLog.get(ip) ?? []).filter((t) => now - t < LIVE_RATE_LIMIT.windowMs);
   recent.push(now);
   liveRequestLog.set(ip, recent);
@@ -117,8 +144,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "territoryQuery is required, e.g. \"Geelong, VIC, Australia\"." }, { status: 400 });
   }
 
-  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "unknown";
-  if (isRateLimited(clientIp)) {
+  if (isRateLimited(getClientIp(request))) {
     return NextResponse.json(
       { error: "Too many live searches from this connection recently — each one makes real, billed Google API calls. Please wait a few minutes and try again." },
       { status: 429 },

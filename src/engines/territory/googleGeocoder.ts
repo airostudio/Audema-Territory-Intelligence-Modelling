@@ -1,5 +1,6 @@
 import type { AdministrativeLocation, GeoPoint } from "../../types/index.js";
 import type { Geocoder, GeocodeResult } from "./geocoder.js";
+import { fetchWithTimeout } from "../../lib/fetchWithTimeout.js";
 
 interface GoogleGeocodingResponse {
   status: string;
@@ -46,14 +47,7 @@ export class GoogleGeocoder implements Geocoder {
     url.searchParams.set("address", query);
     url.searchParams.set("key", this.apiKey);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    let res: Response;
-    try {
-      res = await fetch(url.toString(), { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
+    const res = await fetchWithTimeout(url.toString(), {}, this.timeoutMs);
     if (!res.ok) {
       throw new Error(`Google Geocoding API request failed: HTTP ${res.status}`);
     }

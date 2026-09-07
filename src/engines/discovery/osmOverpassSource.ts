@@ -1,5 +1,6 @@
 import type { BusinessRecord } from "../../types/index.js";
 import type { DiscoveryQuery, DiscoverySource } from "./sources.js";
+import { fetchWithTimeout } from "../../lib/fetchWithTimeout.js";
 
 interface OverpassElement {
   type: "node" | "way" | "relation";
@@ -85,22 +86,18 @@ export class OsmOverpassDiscoverySource implements DiscoverySource {
     // The query itself declares [timeout:25] to Overpass, but that only bounds how long the
     // server spends evaluating it — a stalled connection or a slow public instance under load
     // needs its own client-side deadline so this source can't hang the whole wizard request.
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    let res: Response;
-    try {
-      res = await fetch(this.endpoint, {
+    const res = await fetchWithTimeout(
+      this.endpoint,
+      {
         method: "POST",
-        signal: controller.signal,
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "User-Agent": "AudemaTerritoryIntelligenceModelling/0.1 (business discovery; contact via project repo)",
         },
         body: `data=${encodeURIComponent(overpassQuery)}`,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+      },
+      this.timeoutMs,
+    );
 
     if (!res.ok) {
       throw new Error(`Overpass API request failed: HTTP ${res.status}`);

@@ -1,4 +1,5 @@
 import type { CrawledPageSignals, HtmlCrawler } from "./htmlCrawler.js";
+import { fetchWithTimeout } from "../../lib/fetchWithTimeout.js";
 
 const FORM_OR_BOOKING_PATTERN = /<form[\s>]|calendly\.com|book(ing)?[-\s]?(now|online|appointment)|schedule[-\s]?(a|an|online)/i;
 const CTA_PATTERN = /get\s+a\s+quote|request\s+a\s+quote|call\s+now|book\s+now|contact\s+us|free\s+quote|get\s+started/i;
@@ -19,15 +20,8 @@ const FETCH_TIMEOUT_MS = 8000;
  */
 export class FetchHtmlCrawler implements HtmlCrawler {
   async crawl(url: string): Promise<CrawledPageSignals> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let html = "";
-    try {
-      const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "AudemaTerritoryIntelligenceModelling/0.1 (site audit)" } });
-      html = await res.text();
-    } finally {
-      clearTimeout(timeout);
-    }
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "AudemaTerritoryIntelligenceModelling/0.1 (site audit)" } }, FETCH_TIMEOUT_MS);
+    const html = await res.text();
 
     const services = new Set<string>();
     for (const match of html.matchAll(SERVICE_HEADING_PATTERN)) {

@@ -1,4 +1,5 @@
 import type { PageSpeedClient, PageSpeedScores } from "./pageSpeedClient.js";
+import { fetchWithTimeout } from "../../lib/fetchWithTimeout.js";
 
 interface PageSpeedApiResponse {
   lighthouseResult?: {
@@ -40,14 +41,7 @@ export class RealPageSpeedClient implements PageSpeedClient {
       apiUrl.searchParams.append("category", category);
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    let res: Response;
-    try {
-      res = await fetch(apiUrl.toString(), { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
+    const res = await fetchWithTimeout(apiUrl.toString(), {}, this.timeoutMs);
     const body = (await res.json()) as PageSpeedApiResponse;
     if (!res.ok || !body.lighthouseResult) {
       throw new Error(`PageSpeed Insights API request failed for ${url}: HTTP ${res.status} ${body.error?.message ?? ""}`.trim());

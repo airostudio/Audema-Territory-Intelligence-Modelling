@@ -1,5 +1,6 @@
 import type { BusinessRecord } from "../../types/index.js";
 import type { DiscoveryQuery, DiscoverySource } from "./sources.js";
+import { fetchWithTimeout } from "../../lib/fetchWithTimeout.js";
 
 const FIELD_MASK = [
   "places.id",
@@ -105,13 +106,10 @@ export class GooglePlacesDiscoverySource implements DiscoverySource {
     // sectors like restaurants/mechanics where the text query alone is fairly generic.
     const includedType = query.sector.googlePlaceTypes[0];
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-    let res: Response;
-    try {
-      res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    const res = await fetchWithTimeout(
+      "https://places.googleapis.com/v1/places:searchText",
+      {
         method: "POST",
-        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": this.apiKey,
@@ -123,10 +121,9 @@ export class GooglePlacesDiscoverySource implements DiscoverySource {
           locationBias: { circle: { center, radius: radiusMeters } },
           maxResultCount: this.maxResults,
         }),
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+      },
+      this.timeoutMs,
+    );
 
     if (!res.ok) {
       const body = (await res.json().catch(() => undefined)) as GooglePlacesTextSearchResponse | undefined;
